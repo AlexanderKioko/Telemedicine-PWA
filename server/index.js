@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Allow JSON requests
 
-const users = []; // Temporary storage (We will replace this with a database)
+const users = []; // Temporary storage (Replace with database in production)
 
 // User Registration API
 app.post("/api/register", async (req, res) => {
@@ -31,7 +31,7 @@ app.post("/api/register", async (req, res) => {
   res.json({ message: "User registered successfully!" });
 });
 
-// User Login API
+// Updated User Login API (Now Includes `name` in JWT)
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   const user = users.find((u) => u.email === email);
@@ -41,10 +41,14 @@ app.post("/api/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  // Generate JWT token
-  const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  // Now JWT token includes `name`, `id`, and `role`
+  const token = jwt.sign(
+    { id: user.id, name: user.name, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
 
-  res.json({ token, role: user.role });
+  res.json({ token, role: user.role, name: user.name }); // Send `name` to frontend
 });
 
 // Protected Route Example (Only Accessible with Valid Token)
@@ -62,4 +66,4 @@ app.get("/api/protected", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
