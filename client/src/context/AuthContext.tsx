@@ -5,7 +5,7 @@ import axios from "axios";
 
 // Define the authentication context type
 interface AuthContextType {
-  user: { id: number; role: string } | null;
+  user: { id: number; name: string; role: string } | null; // Added `name`
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -14,7 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<{ id: number; role: string } | null>(null);
+  const [user, setUser] = useState<{ id: number; name: string; role: string } | null>(null);
   const router = useRouter();
 
   // Check if user is already logged in (on page refresh)
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (token) {
       try {
         const userData = JSON.parse(atob(token.split(".")[1]));
-        setUser({ id: userData.id, role: userData.role });
+        setUser({ id: userData.id, name: userData.name, role: userData.role }); // Include `name`
       } catch (error) {
         console.error("Invalid token:", error);
         localStorage.removeItem("token");
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/login`, { email, password });
 
       localStorage.setItem("token", res.data.token);
-      setUser({ id: res.data.id, role: res.data.role });
+      setUser({ id: res.data.id, name: res.data.name, role: res.data.role }); // Include `name`
 
       router.push("/dashboard"); // Redirect to dashboard after login
     } catch (error) {
