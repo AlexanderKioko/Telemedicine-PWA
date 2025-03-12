@@ -8,6 +8,20 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
+  // Function to determine the dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (user?.role) {
+      case "PATIENT":
+        return "/dashboard/patient";
+      case "DOCTOR":
+        return "/dashboard/doctor";
+      case "ADMIN":
+        return "/dashboard/admin";
+      default:
+        return "/dashboard";
+    }
+  };
+
   return (
     <AppBar position="static" sx={{ backgroundColor: "#1976D2" }}>
       <Toolbar>
@@ -20,7 +34,7 @@ export default function Navbar() {
 
         {user ? (
           <>
-            <Button color="inherit" onClick={() => router.push("/dashboard")}>
+            <Button color="inherit" onClick={() => router.push(getDashboardRoute())}>
               Dashboard
             </Button>
             <Button color="inherit" onClick={logout}>
