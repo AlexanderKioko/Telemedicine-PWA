@@ -1,4 +1,4 @@
-"use client"; // Convert to Client Component
+"use client"; // Ensure this file runs on the client side
 
 import Navbar from "@/components/Navbar";
 import "./globals.css";
@@ -13,12 +13,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        {/* Navbar is included globally */}
-        <Navbar />
-
-        {/* Wrapping app with QueryClientProvider & AuthProvider */}
+        {/* Wraps entire app with AuthProvider so Navbar gets context */}
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
+            <Navbar /> {/* Now Navbar is inside AuthProvider */}
             {children}
           </AuthProvider>
         </QueryClientProvider>
