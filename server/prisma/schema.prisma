@@ -8,30 +8,73 @@ datasource db {
 }
 
 model User {
-  id       String       @id @default(uuid())
-  name     String
-  email    String       @unique
-  password String
-  role     Role
+  id            String        @id @default(uuid())
+  name          String        @db.VarChar(100)
+  email         String        @unique @db.VarChar(255)
+  password      String        @db.VarChar(255)
+  role          Role
+  gender        Gender
+  nationalId    String        @unique @db.VarChar(255) @map("national_id")
+  available     Boolean?      @default(false)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  refreshToken  String?       @db.VarChar(255) @map("refresh_token")
 
-  // Relationships (Fixed)
-  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
-  appointmentsAsDoctor  Appointment[] @relation("DoctorAppointments")
+  appointmentsAsPatient Appointment[] @relation("patientAppointments")
+  appointmentsAsDoctor  Appointment[] @relation("doctorAppointments")
+  notifications         Notification[]
+
+  @@index([email], name: "user_email_index")
+  @@index([nationalId], name: "user_national_id_index")
+  @@map("users")
 }
 
 model Appointment {
-  id        String  @id @default(uuid())
-  patientId String
-  doctorId  String
-  status    String  // pending, confirmed, completed
+  id         String   @id @default(uuid())
+  patientId  String   @map("patient_id")
+  doctorId   String   @map("doctor_id")
+  date       DateTime  // Stores full UTC datetime
+  status     String   @default("pending") @db.VarChar(20)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  reminderSent Boolean @default(false) @map("reminder_sent")
 
-  // Corrected Relationships
-  patient   User    @relation("PatientAppointments", fields: [patientId], references: [id])
-  doctor    User    @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patient    User     @relation("patientAppointments", fields: [patientId], references: [id])
+  doctor     User     @relation("doctorAppointments", fields: [doctorId], references: [id])
+
+  @@index([patientId], name: "appointment_patient_id_index")
+  @@index([doctorId], name: "appointment_doctor_id_index")
+  @@index([date], name: "appointment_date_index")
+  @@index([status], name: "appointment_status_index")
+  @@map("appointments")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String   @db.VarChar(100)
+  message     String   @db.Text
+  isRead      Boolean  @default(false) @map("is_read")
+  type        String   @db.VarChar(20) // 'appointment', 'system', 'video'
+  relatedId   String?  @db.VarChar(255) @map("related_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "notification_user_id_index")
+  @@index([isRead], name: "notification_read_index")
+  @@map("notifications")
 }
 
 enum Role {
   PATIENT
   DOCTOR
   ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }

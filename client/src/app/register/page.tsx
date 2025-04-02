@@ -1,122 +1,245 @@
 "use client";
 import { useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { TextField, Button, Container, Typography, Box, CircularProgress, MenuItem } from "@mui/material";
+import {
+  TextField, Button, Container, Typography, Box,
+  CircularProgress, MenuItem, IconButton, InputAdornment, Alert
+} from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
+import axios from "axios";
+import Link from 'next/link';
 
-// Define form data type
 interface RegisterForm {
   name: string;
   email: string;
   password: string;
   role: "PATIENT" | "DOCTOR";
+  gender: "MALE" | "FEMALE" | "OTHER";
+  nationalId: string;
 }
 
-// Form validation schema using Yup
 const schema = yup.object().shape({
   name: yup.string().required("Name is required"),
   email: yup.string().email("Invalid email").required("Email is required"),
   password: yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
   role: yup.string().oneOf(["PATIENT", "DOCTOR"], "Invalid role").required("Role is required"),
+  gender: yup.string().oneOf(["MALE", "FEMALE", "OTHER"], "Invalid gender").required("Gender is required"),
+  nationalId: yup.string().required("National ID is required"),
 });
 
 export default function Register() {
-  const { login } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Use react-hook-form with controlled components
   const { control, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
     resolver: yupResolver(schema),
-    defaultValues: { name: "", email: "", password: "", role: "PATIENT" }, // ✅ Prevents uncontrolled input errors
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      role: "PATIENT",
+      gender: "MALE",
+      nationalId: ""
+    },
   });
 
   const onSubmit = async (data: RegisterForm) => {
-    setLoading(true);
+    setError(null);
+    setIsSubmitting(true);
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      await axios.post('/api/register', data, {
+        withCredentials: true // Add this
       });
 
-      if (!response.ok) {
-        throw new Error("Registration failed");
+      // Redirect to dashboard after successful registration
+      window.location.href = '/dashboard';
+    } catch (err: unknown) {
+      let errorMessage = "Registration failed. Please try again.";
+
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.error ||
+                      err.response?.data?.message ||
+                      err.message;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
 
-      // Log in immediately after successful registration
-      await login(data.email, data.password);
-    } catch (error) {
-      console.error("Registration error:", error); // Fixes ESLint warning & logs for debugging
-      alert("Registration failed. Please try again.");
+      setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
-    setLoading(false);
   };
 
   return (
     <Container maxWidth="xs">
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mt: 8 }}>
-        <Typography variant="h4" fontWeight="bold">Create an Account</Typography>
-        <Typography variant="body2" color="textSecondary">Sign up to get started</Typography>
+      <Box sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        mt: 8,
+        minHeight: "70vh"
+      }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom>
+          Create an Account
+        </Typography>
+        <Typography variant="body2" color="textSecondary" gutterBottom>
+          Sign up to get started
+        </Typography>
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ width: "100%", mt: 3 }}>
-          <Controller name="name" control={control} render={({ field }) => (
-            <TextField 
-              {...field} 
-              label="Full Name" 
-              fullWidth 
-              margin="normal" 
-              error={!!errors.name} 
-              helperText={errors.name?.message as string} 
-              value={field.value || ""} // Ensures controlled input
-            />
-          )} />
-          
-          <Controller name="email" control={control} render={({ field }) => (
-            <TextField 
-              {...field} 
-              label="Email" 
-              fullWidth 
-              margin="normal" 
-              error={!!errors.email} 
-              helperText={errors.email?.message as string} 
-              value={field.value || ""} // Ensures controlled input
-            />
-          )} />
+        {error && (
+          <Alert severity="error" sx={{ width: '100%', mt: 2, mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-          <Controller name="password" control={control} render={({ field }) => (
-            <TextField 
-              {...field} 
-              label="Password" 
-              type="password" 
-              fullWidth 
-              margin="normal" 
-              error={!!errors.password} 
-              helperText={errors.password?.message as string} 
-              value={field.value || ""} // Ensures controlled input
-            />
-          )} />
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{ width: "100%", mt: 3 }}
+        >
+          <Controller
+            name="name"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Full Name"
+                fullWidth
+                margin="normal"
+                error={!!errors.name}
+                helperText={errors.name?.message}
+                disabled={isSubmitting}
+              />
+            )}
+          />
 
-          <Controller name="role" control={control} render={({ field }) => (
-            <TextField 
-              {...field} 
-              label="Role" 
-              select 
-              fullWidth 
-              margin="normal" 
-              error={!!errors.role} 
-              helperText={errors.role?.message as string}
-              value={field.value || "PATIENT"} // Ensures controlled input
-            >
-              <MenuItem value="PATIENT">Patient</MenuItem>
-              <MenuItem value="DOCTOR">Doctor</MenuItem>
-            </TextField>
-          )} />
+          <Controller
+            name="email"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Email"
+                fullWidth
+                margin="normal"
+                error={!!errors.email}
+                helperText={errors.email?.message}
+                disabled={isSubmitting}
+              />
+            )}
+          />
 
-          <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : "Register"}
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                fullWidth
+                margin="normal"
+                error={!!errors.password}
+                helperText={errors.password?.message}
+                disabled={isSubmitting}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        disabled={isSubmitting}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+          />
+
+          <Controller
+            name="role"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Role"
+                select
+                fullWidth
+                margin="normal"
+                error={!!errors.role}
+                helperText={errors.role?.message}
+                disabled={isSubmitting}
+              >
+                <MenuItem value="PATIENT">Patient</MenuItem>
+                <MenuItem value="DOCTOR">Doctor</MenuItem>
+              </TextField>
+            )}
+          />
+
+          <Controller
+            name="gender"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Gender"
+                select
+                fullWidth
+                margin="normal"
+                error={!!errors.gender}
+                helperText={errors.gender?.message}
+                disabled={isSubmitting}
+              >
+                <MenuItem value="MALE">Male</MenuItem>
+                <MenuItem value="FEMALE">Female</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
+              </TextField>
+            )}
+          />
+
+          <Controller
+            name="nationalId"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="National ID"
+                fullWidth
+                margin="normal"
+                error={!!errors.nationalId}
+                helperText={errors.nationalId?.message}
+                disabled={isSubmitting}
+              />
+            )}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, py: 1.5 }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : "Register"}
           </Button>
+
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Link href="/login" style={{ pointerEvents: isSubmitting ? 'none' : 'auto' }}>
+                Login
+              </Link>
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </Container>

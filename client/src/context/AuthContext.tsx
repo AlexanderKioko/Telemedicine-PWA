@@ -1,64 +1,155 @@
 "use client";
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useEffect, useCallback, useContext, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import api, { AxiosError } from "@/lib/api";
 
-// Define the authentication context type
-interface AuthContextType {
-  user: { id: number; name: string; role: string } | null; // Added `name`
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'PATIENT' | 'DOCTOR' | 'ADMIN';
 }
 
-// Create the authentication context
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
+  loading: boolean;
+  checkAuth: () => Promise<boolean>;
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<{ id: number; name: string; role: string } | null>(null);
-  const router = useRouter();
+// Define a type for the error response data
+interface ErrorResponse {
+  error?: string;
+  message?: string;
+  detail?: string;
+}
 
-  // Check if user is already logged in (on page refresh)
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      try {
-        const userData = JSON.parse(atob(token.split(".")[1]));
-        setUser({ id: userData.id, name: userData.name, role: userData.role }); // Include `name`
-      } catch (error) {
-        console.error("Invalid token:", error);
-        localStorage.removeItem("token");
-      }
-    }
-  }, []);
-
-  // Login function
-  const login = async (email: string, password: string) => {
-    try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/login`, { email, password });
-
-      localStorage.setItem("token", res.data.token);
-      setUser({ id: res.data.id, name: res.data.name, role: res.data.role }); // Include `name`
-
-      router.push("/dashboard"); // Redirect to dashboard after login
-    } catch (error) {
-      console.error("Login Error:", error);
-      alert("Login failed. Check your credentials.");
-    }
-  };
-
-  // Logout function
-  const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    router.push("/"); // Redirect to home after logout
-  };
-
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+const isAxiosError = (error: unknown): error is AxiosError => {
+  return (error as AxiosError).isAxiosError === true;
 };
 
-// Hook to use authentication
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  const handleLogout = useCallback(async () => {
+    await api.post('/api/logout');
+    setUser(null);
+    router.push('/login');
+  }, [router]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post<{ user: User }>('/api/login', { email, password });
+      setUser(data.user);
+      router.push(`/dashboard/${data.user.role.toLowerCase()}`);
+    } catch (error) {
+      console.error("Login Error:", error);
+      let errorMessage = "Login failed. Please check your credentials.";
+
+      if (isAxiosError(error)) {
+        if (error.response) {
+          const responseData = error.response.data as ErrorResponse;
+
+          // Handle different response structures
+          if (typeof responseData === 'string') {
+            errorMessage = responseData;
+          } else if (responseData) {
+            errorMessage = responseData.error || responseData.message || responseData.detail || error.message;
+          }
+
+          if (error.response.status === 401) {
+            await handleLogout();
+          }
+        } else {
+          errorMessage = error.message || "Network error";
+        }
+      }
+
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [router, handleLogout]);
+
+  const verifyToken = useCallback(async (): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const { data } = await api.get<{ valid: boolean; user?: User }>('/api/verify-token');
+
+      if (data.valid && data.user) {
+        setUser(data.user);
+        return true;
+      }
+
+      await handleLogout();
+      return false;
+    } catch (error) {
+      if (isAxiosError(error)) {
+        await handleLogout();
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [handleLogout]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAuthOnLoad = async () => {
+      try {
+        const { data } = await api.get<{ valid: boolean; user?: User }>('/api/verify-token');
+
+        if (mounted) {
+          if (data.valid && data.user) {
+            setUser(data.user);
+          } else {
+            await handleLogout();
+          }
+        }
+      } catch (error) {
+        if (mounted && isAxiosError(error)) {
+          await handleLogout();
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    checkAuthOnLoad();
+
+    return () => {
+      mounted = false;
+    };
+  }, [handleLogout]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    login,
+    logout: handleLogout,
+    isAuthenticated: !!user,
+    loading,
+    checkAuth: verifyToken
+  }), [user, login, handleLogout, loading, verifyToken]);
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
   return context;
 };

@@ -1,1 +1,29 @@
+# Dependency directories
+node_modules/
+*/node_modules/*
+
+# Environment files
+.env
+.env.local
+
+# Logs and databases
+*.log
+backups/
+*.sql
+
+# Editor directories and files
+.idea/
+# Build files
+dist/
+build/
+.next/
+
 backup/
+
+# Lockfiles (except root)
+client/package-lock.json
+server/package-lock.json
+
+# System files
+.DS_Store
+.vscode/
