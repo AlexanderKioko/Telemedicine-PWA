@@ -9,10 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node server/prisma/seed.js",
     "reset-db": "npx prisma migrate reset --force && npm run seed",
-    "postinstall": "prisma generate"
-  },
-  "prisma": {
-    "seed": "node server/prisma/seed.js"
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
