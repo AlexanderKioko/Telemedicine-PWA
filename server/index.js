@@ -38,8 +38,13 @@ class AppError extends Error {
 }
 
 // Update CORS configuration
+const allowedOrigins = [
+  'https://telemedicine-iv128efhd-alexander-kiokos-projects.vercel.app',
+  'http://localhost:3000' // Keep this for local testing
+];
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL,
+  origin: allowedOrigins,
   credentials: true,
   methods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE'], // ✅ Add PUT and DELETE here
   allowedHeaders: ['Content-Type', 'Authorization']
