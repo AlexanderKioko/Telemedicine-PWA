@@ -8,14 +8,21 @@
     "dev": "nodemon server/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node server/prisma/seed.js",
-    "reset-db": "npx prisma migrate reset --force && npm run seed",
-    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+    "reset-db": "npx prisma migrate reset --schema=./server/prisma/schema.prisma --force && npm run seed",
+    "prepare": "prisma generate --schema=./server/prisma/schema.prisma",
+    "postinstall": "prisma generate --schema=./server/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema=./server/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema=./server/prisma/schema.prisma"
+  },
+  "prisma": {
+    "schema": "./server/prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.5.0",
+    "prisma": "^6.5.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/simple-peer": "^9.11.8",
     "@types/socket.io-client": "^1.4.36",
@@ -40,7 +47,6 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "prisma": "^6.5.0",
     "nodemon": "^3.0.0"
   }
 }
